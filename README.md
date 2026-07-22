@@ -4,6 +4,19 @@ ngspice simulation of a two-NMOS cascode bias stack. The goal is to choose the
 bias resistor **Ri** that maximizes the voltage swing at the internal cascode
 node **Vo** while keeping **both** transistors in saturation.
 
+## Hand sketch
+
+<p align="center"><img src="sketch_fvf.png" width="220" alt="hand-drawn FVF cascode bias sketch"></p>
+
+The same sketch with the simulated operating point annotated at each node for
+three bias resistors (branch current is a fixed **10 µA** by KCL; only the node
+voltages move):
+
+| Ri = 5 kΩ | Ri = 30 kΩ | Ri = 60 kΩ |
+|:---:|:---:|:---:|
+| ![Ri=5k](sketch_annotated_5k.png) | ![Ri=30k](sketch_annotated_30k.png) | ![Ri=60k](sketch_annotated_60k.png) |
+| Vo = 0.068 V → **M1 in triode** | Vo = 0.300 V → **both saturated ✓** | Vo = 0.562 V → **M2 in triode** |
+
 ## Circuit
 
 ```
