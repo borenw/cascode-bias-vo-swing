@@ -7,15 +7,22 @@ node **Vo** while keeping **both** transistors in saturation.
 ## Hand sketch
 
 <p align="center"><img src="sketch_fvf.png" width="220" alt="hand-drawn FVF cascode bias sketch"></p>
+<p align="center"><b>Figure 1.</b> Hand sketch of the FVF cascode bias stack.</p>
+
+## Annotated operating points
 
 The same sketch with the simulated operating point annotated at each node for
-three bias resistors (branch current is a fixed **10 µA** by KCL; only the node
-voltages move):
+three bias resistors. The branch current is a fixed **10 µA** by KCL (single
+series path); only the node voltages move.
 
-| Ri = 5 kΩ | Ri = 30 kΩ | Ri = 60 kΩ |
-|:---:|:---:|:---:|
-| ![Ri=5k](sketch_annotated_5k.png) | ![Ri=30k](sketch_annotated_30k.png) | ![Ri=60k](sketch_annotated_60k.png) |
-| Vo = 0.068 V → **M1 in triode** | Vo = 0.300 V → **both saturated ✓** | Vo = 0.562 V → **M2 in triode** |
+<p align="center"><img src="sketch_annotated_5k.png" width="440" alt="operating point at Ri=5k"></p>
+<p align="center"><b>Figure 2.</b> Ri = 5 kΩ — Vo sags to 0.068 V, <b>M1 falls into triode</b>.</p>
+
+<p align="center"><img src="sketch_annotated_30k.png" width="440" alt="operating point at Ri=30k"></p>
+<p align="center"><b>Figure 3.</b> Ri = 30 kΩ — Vo centered at 0.300 V, <b>both transistors saturated → maximum Vo swing</b>.</p>
+
+<p align="center"><img src="sketch_annotated_60k.png" width="440" alt="operating point at Ri=60k"></p>
+<p align="center"><b>Figure 4.</b> Ri = 60 kΩ — Vo climbs to 0.562 V, <b>M2 falls into triode</b>.</p>
 
 ## Circuit
 
@@ -90,7 +97,8 @@ maximizes the *symmetric* swing.
 Fine sweep (`sweep.cir`, 2 k…70 k in 1 k steps) with the saturation window
 shaded and the slope labeled at Ri = 30 kΩ:
 
-![Ri vs Vo](ri_vs_vo.png)
+<p align="center"><img src="ri_vs_vo.png" width="720" alt="Ri vs Vo sweep"></p>
+<p align="center"><b>Figure 5.</b> 2-D Ri-vs-Vo sweep — both-in-saturation window shaded, slope dVo/dRi = IB labeled at Ri = 30 kΩ.</p>
 
 The curve is **linear inside the saturation window** with
 
