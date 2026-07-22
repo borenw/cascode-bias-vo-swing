@@ -163,7 +163,7 @@ It reproduces the built-in-resistor operating points **bit-for-bit**:
 | 30 k | 0.91513 V | 0.30002 V | 0.30002 V ✓ |
 | 60 k | 1.21483 V | 0.56212 V | 0.56212 V ✓ |
 
-## Resistor-programmed logic (AND / OR from series & parallel Ri)
+## Resistor-programmed logic: AND, OR, NAND, NOR
 
 Because M1 and M2 are identical and carry the same current, `V(vgs) = VGS2` and
 the offset cancels, leaving a clean linear map
