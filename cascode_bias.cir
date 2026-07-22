@@ -1,0 +1,24 @@
+* Cascode bias stack - maximize vo swing vs Ri
+* Stack: gnd -> M1 -> vo -> M2 -> vgs ; Ib feeds vb, Ri: vb->vgs
+* vo = internal cascode node.  Swing window: Vov1 <= vo <= V(vgs)-Vov2
+
+.model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
+
+VDD  vcc 0 1.8
+IB   vcc vb 10u                 ; 10 uA pushed into node vb
+RI   vb  vgs 30k                ; swept below
+M1   vo  vgs 0   0   NM W=5u L=0.5u
+M2   vgs vb  vo  vo  NM W=5u L=0.5u
+
+.control
+set noaskquit
+foreach rval 5k 10k 20k 30k 40k 60k
+  alter RI = $rval
+  op
+  echo "===== Ri = $rval ====="
+  print v(vb) v(vgs) v(vo)
+  print @m1[vgs] @m1[vth] @m1[vds] @m1[vdsat] @m1[id]
+  print @m2[vgs] @m2[vth] @m2[vds] @m2[vdsat] @m2[id]
+end
+.endc
+.end

@@ -1,0 +1,22 @@
+* Fine Ri sweep for Ri-vs-Vo curve
+.model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
+VDD  vcc 0 1.8
+IB   vcc vb 10u
+RI   vb  vgs 30k
+M1   vo  vgs 0   0   NM W=5u L=0.5u
+M2   vgs vb  vo  vo  NM W=5u L=0.5u
+
+.control
+set noaskquit
+let r = 2k
+while r le 70k
+  alter RI = r
+  op
+  let vo1  = v(vo)
+  let vgs1 = v(vgs)
+  let vb1  = v(vb)
+  echo "DATA $&r $&vo1 $&vgs1 $&vb1"
+  let r = r + 1k
+end
+.endc
+.end
