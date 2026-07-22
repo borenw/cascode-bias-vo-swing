@@ -1,38 +1,50 @@
-* Resistor-programmed logic from the cascode bias cell:  Vo = IB * Ri
-* Two digital inputs A,B (0 / 1.8 V) program Ri; a comparator on Vo gives logic.
-*   series network:  Ri = Rb + A*Ru + B*Ru      -> Vo rises  -> OR / AND
-*   parallel network: Ri = Rhi || (A?Rp) || (B?Rp) -> Vo falls -> NOR / NAND
-* Ri is the Verilog-A resistor (realized here by its behavioral equivalent BR*).
+* Resistor-programmed logic from the cascode bias cell.  Vo = IB * Ri.
+* Switch convention: a "resistor_input" is a switch -> input=1: R_on (closed),
+* input=0: R_off (open).  The comparator is ACTIVE-LOW: OUT=1 when the network
+* conducts (low R -> low Vo, below threshold).
+*
+*   AND = two switches in SERIES    (low R only if BOTH closed)
+*   OR  = two switches in PARALLEL  (low R if EITHER closed)
+*   XOR = summing SERIES network (3 Vo levels) read by a WINDOW comparator
+*         (XOR is non-monotone, so a single threshold on a 2-terminal R network
+*          cannot make it; the middle level = "exactly one input high".)
 
 .model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
-.param Rb=12k Ru=12k Rhi=48k Rp=48k
+.param Ron=6k Roff=300k Rb=12k Ru=12k
 
 VDD vcc 0 1.8
 VA  A 0 0
 VB  B 0 0
 
-* ---- series (sum) network -> OR (Vth=0.18) / AND (Vth=0.30) ----
-IBs vcc vbs 10u
-BRs vbs vgss I = V(vbs,vgss)/( {Rb} + (V(A)>0.9 ? {Ru}:0) + (V(B)>0.9 ? {Ru}:0) )
-M1s vos vgss 0   0   NM W=5u L=0.5u
-M2s vgss vbs vos vos NM W=5u L=0.5u
+* ---- AND : two switch-resistors in SERIES ----
+IBa vcc vba 10u
+BRa vba vgsa I = V(vba,vgsa)/( (V(A)>0.9?{Ron}:{Roff}) + (V(B)>0.9?{Ron}:{Roff}) )
+M1a voa vgsa 0   0   NM W=5u L=0.5u
+M2a vgsa vba voa voa NM W=5u L=0.5u
 
-* ---- parallel network -> NOR (Vth=0.36) / NAND (Vth=0.20) ----
-IBp vcc vbp 10u
-BRp vbp vgsp I = V(vbp,vgsp)/( 1/( 1/{Rhi} + (V(A)>0.9 ? 1/{Rp}:0) + (V(B)>0.9 ? 1/{Rp}:0) ) )
-M1p vop vgsp 0   0   NM W=5u L=0.5u
-M2p vgsp vbp vop vop NM W=5u L=0.5u
+* ---- OR : two switch-resistors in PARALLEL ----
+IBo vcc vbo 10u
+BRo vbo vgso I = V(vbo,vgso)/( 1/( 1/(V(A)>0.9?{Ron}:{Roff}) + 1/(V(B)>0.9?{Ron}:{Roff}) ) )
+M1o voo vgso 0   0   NM W=5u L=0.5u
+M2o vgso vbo voo voo NM W=5u L=0.5u
+
+* ---- XOR : summing SERIES network (Vo = IB*(Rb + A*Ru + B*Ru)) + window comparator ----
+IBx vcc vbx 10u
+BRx vbx vgsx I = V(vbx,vgsx)/( {Rb} + (V(A)>0.9?{Ru}:0) + (V(B)>0.9?{Ru}:0) )
+M1x vox vgsx 0   0   NM W=5u L=0.5u
+M2x vgsx vbx vox vox NM W=5u L=0.5u
 
 .control
 set noaskquit
 foreach a 0 1.8
   foreach b 0 1.8
-    alter VA = $a
-    alter VB = $b
+    alter VA=$a
+    alter VB=$b
     op
-    let vs = v(vos)
-    let vp = v(vop)
-    echo "IN A=$a B=$b  Vo_series= $&vs   Vo_parallel= $&vp"
+    let va=v(voa)
+    let vo=v(voo)
+    let vx=v(vox)
+    echo "A=$a B=$b  Vo_AND(series)= $&va   Vo_OR(parallel)= $&vo   Vo_XOR(sum)= $&vx"
   end
 end
 .endc

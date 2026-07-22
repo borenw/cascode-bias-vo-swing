@@ -163,7 +163,7 @@ It reproduces the built-in-resistor operating points **bit-for-bit**:
 | 30 k | 0.91513 V | 0.30002 V | 0.30002 V ✓ |
 | 60 k | 1.21483 V | 0.56212 V | 0.56212 V ✓ |
 
-## Resistor-programmed logic: AND, OR, NAND, NOR
+## Resistor-programmed logic: AND, OR, XOR
 
 Because M1 and M2 are identical and carry the same current, `V(vgs) = VGS2` and
 the offset cancels, leaving a clean linear map
@@ -172,31 +172,53 @@ the offset cancels, leaving a clean linear map
 Vo = IB · Ri
 ```
 
-So Ri is a digital-to-Vo converter. Build Ri from switched unit resistors
-(driven by inputs A, B) and threshold Vo with a comparator
-([`logic_ri.cir`](logic_ri.cir), IB = 10 µA, Ru = 12 kΩ):
+The cell reads **resistance**, so treat each input as a **switch** (a
+"resistor_input"): `input = 1 → R_on` (closed, low), `input = 0 → R_off`
+(open, high). The comparator is **active-low** — output = 1 when the network
+**conducts** (low Ri → low Vo, below threshold). This is exactly switch/relay
+logic ([`logic_ri.cir`](logic_ri.cir), IB = 10 µA, R_on = 6 kΩ, R_off = 300 kΩ):
 
-- **Series** `Ri = Rb + A·Ru + B·Ru` → Vo **rises** → non-inverting **OR / AND**
-- **Parallel** `Ri = Rhi ‖ (A?Rp) ‖ (B?Rp)` → Vo **falls** → inverting **NOR / NAND**
+- **AND = two switches in SERIES** — low-R (conducts) only if **both** close
+- **OR = two switches in PARALLEL** — low-R (conducts) if **either** closes
 
-The threshold selects the gate. Simulated Vo (V):
+Simulated Vo (V) and active-low decision (Vth = 0.30 V, `OUT = 1 ⇔ Vo < Vth`):
 
-| A | B | Vo series | Vo parallel |
-|:-:|:-:|:--:|:--:|
-| 0 | 0 | 0.120 | 0.480 |
-| 0 | 1 | 0.240 | 0.240 |
-| 1 | 0 | 0.240 | 0.240 |
-| 1 | 1 | 0.360 | 0.160 |
+| A | B | Vo AND (series) | AND | Vo OR (parallel) | OR |
+|:-:|:-:|:--:|:--:|:--:|:--:|
+| 0 | 0 | 0.614 | 0 | 0.608 | 0 |
+| 0 | 1 | 0.612 | 0 | 0.072 | 1 |
+| 1 | 0 | 0.612 | 0 | 0.072 | 1 |
+| 1 | 1 | 0.120 | **1** | 0.058 | 1 |
 
-| gate | network | threshold | result |
-|------|---------|-----------|--------|
-| **OR**   | series   | Vo > 0.18 V | 0,1,1,1 |
-| **AND**  | series   | Vo > 0.30 V | 0,0,0,1 |
-| **NAND** | parallel | Vo > 0.20 V | 1,1,1,0 |
-| **NOR**  | parallel | Vo > 0.36 V | 1,0,0,0 |
+(A non-conducting network pins Vo near `V(vgs) ≈ 0.61 V` — Ri is huge, so M2 goes
+triode and Vo saturates high. Flipping the comparator polarity gives **NAND / NOR**.)
 
-One bias cell = a 2-input gate whose function is set by *how you wire Ri* (series
-vs parallel) and *where you put the comparator threshold*.
+### XOR — needs one more ingredient
+
+XOR is **non-monotone** (parity), so *no single threshold on any two-terminal
+series/parallel resistor network can produce it* — series and parallel only
+realize the two monotone extremes (AND, OR). Two ways to get XOR from the same
+cell:
+
+1. **Summing series network + window comparator** (implemented). Instead of
+   switches, each input *adds* a unit resistor in series:
+   `Ri = Rb + A·Ru + B·Ru` (Rb = Ru = 12 kΩ) → three equally-spaced Vo levels.
+   XOR = "exactly one high" = the **middle** level, selected by a **window
+   comparator** `0.18 V < Vo < 0.30 V`:
+
+   | A | B | Vo XOR (sum) | in window? | XOR |
+   |:-:|:-:|:--:|:--:|:--:|
+   | 0 | 0 | 0.120 | below | 0 |
+   | 0 | 1 | 0.240 | **in** | **1** |
+   | 1 | 0 | 0.240 | **in** | **1** |
+   | 1 | 1 | 0.360 | above | 0 |
+
+2. **Compose two cells:** `XOR = OR · NAND = (A OR B) AND NOT(A AND B)` — AND the
+   OR-cell's "conducting" flag with the AND-cell's "not-conducting" flag.
+
+So one bias cell is a 2-input gate whose function is set by *how you wire the
+resistor_inputs* (series → AND, parallel → OR) and *the comparator* (single
+active-low threshold for AND/OR; a window on a summing network for XOR).
 
 ## Differential version
 
