@@ -4,10 +4,15 @@ ngspice simulation of a two-NMOS cascode bias stack. The goal is to choose the
 bias resistor **Ri** that maximizes the voltage swing at the internal cascode
 node **Vo** while keeping **both** transistors in saturation.
 
+## Concept
+
+<p align="center"><img src="sketch_fvf2.png" width="360" alt="concept and FVF implementation of the cascode bias"></p>
+<p align="center"><b>Figure 1.</b> Concept vs implementation — a current source drives Ri into a buffer to set Vo (top); implementation A realizes that buffer as the flipped-voltage-follower (FVF) cascode stack (bottom).</p>
+
 ## Hand sketch
 
 <p align="center"><img src="sketch_fvf.png" width="220" alt="hand-drawn FVF cascode bias sketch"></p>
-<p align="center"><b>Figure 1.</b> Hand sketch of the FVF cascode bias stack.</p>
+<p align="center"><b>Figure 2.</b> Hand sketch of the FVF cascode bias stack.</p>
 
 ## Annotated operating points
 
@@ -16,13 +21,13 @@ three bias resistors. The branch current is a fixed **10 µA** by KCL (single
 series path); only the node voltages move.
 
 <p align="center"><img src="sketch_annotated_5k.png" width="440" alt="operating point at Ri=5k"></p>
-<p align="center"><b>Figure 2.</b> Ri = 5 kΩ — Vo sags to 0.068 V, <b>M1 falls into triode</b>.</p>
+<p align="center"><b>Figure 3.</b> Ri = 5 kΩ — Vo sags to 0.068 V, <b>M1 falls into triode</b>.</p>
 
 <p align="center"><img src="sketch_annotated_30k.png" width="440" alt="operating point at Ri=30k"></p>
-<p align="center"><b>Figure 3.</b> Ri = 30 kΩ — Vo centered at 0.300 V, <b>both transistors saturated → maximum Vo swing</b>.</p>
+<p align="center"><b>Figure 4.</b> Ri = 30 kΩ — Vo centered at 0.300 V, <b>both transistors saturated → maximum Vo swing</b>.</p>
 
 <p align="center"><img src="sketch_annotated_60k.png" width="440" alt="operating point at Ri=60k"></p>
-<p align="center"><b>Figure 4.</b> Ri = 60 kΩ — Vo climbs to 0.562 V, <b>M2 falls into triode</b>.</p>
+<p align="center"><b>Figure 5.</b> Ri = 60 kΩ — Vo climbs to 0.562 V, <b>M2 falls into triode</b>.</p>
 
 ## Circuit
 
@@ -98,7 +103,7 @@ Fine sweep (`sweep.cir`, 2 k…70 k in 1 k steps) with the saturation window
 shaded and the slope labeled at Ri = 30 kΩ:
 
 <p align="center"><img src="ri_vs_vo.png" width="720" alt="Ri vs Vo sweep"></p>
-<p align="center"><b>Figure 5.</b> 2-D Ri-vs-Vo sweep — both-in-saturation window shaded, slope dVo/dRi = IB labeled at Ri = 30 kΩ.</p>
+<p align="center"><b>Figure 6.</b> 2-D Ri-vs-Vo sweep — both-in-saturation window shaded, slope dVo/dRi = IB labeled at Ri = 30 kΩ.</p>
 
 The curve is **linear inside the saturation window** with
 
