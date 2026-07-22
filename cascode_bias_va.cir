@@ -1,0 +1,35 @@
+* Cascode bias using the Verilog-A resistor as Ri
+*
+* On a machine with OpenVAF, compile resistor_va.va -> resistor_va.osdi and use:
+*     .control
+*       osdi resistor_va.osdi
+*     .endc
+*     NRI vb vgs resistor_va R=30k
+*
+* This box has no Verilog-A compiler, so Ri is realized here with an ngspice
+* behavioral source (BRI) that evaluates the EXACT same constitutive equation
+*     I(p,n) = V(p,n) / ( R*(1 + tc1*dT + tc2*dT^2) )
+* as resistor_va.va.  It reproduces the built-in-R operating points bit-for-bit.
+
+.model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
+
+.param Rval=30k  tc1=0  tc2=0  tnom=27
+
+VDD  vcc 0 1.8
+IB   vcc vb 10u
+* --- Verilog-A resistor equivalent (Ri from vb to vgs) ---
+BRI  vb vgs I = V(vb,vgs) / ( Rval*(1 + tc1*(temper-tnom) + tc2*(temper-tnom)^2) )
+M1   vo  vgs 0   0   NM W=5u L=0.5u
+M2   vgs vb  vo  vo  NM W=5u L=0.5u
+
+.control
+set noaskquit
+foreach rv 5k 30k 60k
+  alterparam Rval = $rv
+  reset
+  op
+  echo "===== VerilogA-R  Ri = $rv ====="
+  print v(vb) v(vgs) v(vo)
+end
+.endc
+.end

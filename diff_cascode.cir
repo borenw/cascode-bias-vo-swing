@@ -1,0 +1,41 @@
+* Differential version: NMOS diff pair on an Ri-programmed FVF cascode tail sink
+* The single-ended FVF cell becomes the replica bias (generates vgs, vb from
+* IB & Ri).  Mb/Mc form a mirrored cascode current-sink tail; Ri programs the
+* cascode gate vb (tail headroom).  Outputs vo+ / vo- swing differentially.
+
+.model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
+.param Rval=30k
+
+VDD vcc 0 1.8
+Vcm vcm 0 1.2
+Vid vid 0 0
+Bip vip 0 V = V(vcm) + V(vid)/2      ; vin+ = Vcm + Vid/2
+Bim vim 0 V = V(vcm) - V(vid)/2      ; vin- = Vcm - Vid/2
+
+* ---- replica FVF cascode bias core (Ri, IB -> vgs, vb) ----
+IB   vcc vb 10u
+BRi  vb vgs I = V(vb,vgs)/{Rval}
+M1r  vor vgs 0   0   NM W=5u  L=0.5u
+M2r  vgs vb  vor vor NM W=5u  L=0.5u
+
+* ---- mirrored cascode current-sink tail ( ~2*IB = 20uA ) ----
+Mb   vt2   vgs 0    0    NM W=10u L=0.5u    ; mirrors M1r, x2
+Mc   vtail vb  vt2  vt2  NM W=10u L=0.5u    ; cascode, gate = vb (Ri-programmed)
+
+* ---- NMOS differential pair with resistor loads ----
+MDL  vop vip vtail 0 NM W=20u L=0.5u
+MDR  vom vim vtail 0 NM W=20u L=0.5u
+RLL  vcc vop 40k
+RLR  vcc vom 40k
+
+.control
+set noaskquit
+op
+echo "--- operating point (Vid=0) ---"
+print v(vtail) v(vop) v(vom) i(vcm)
+print @mdl[id] @mc[id] @mb[id]
+dc Vid -0.15 0.15 0.0025
+let vod = v(vop)-v(vom)
+wrdata diff_sweep.dat v(vop) v(vom) vod
+.endc
+.end

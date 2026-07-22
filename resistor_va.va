@@ -1,0 +1,33 @@
+// resistor_va.va — a compact Verilog-A resistor for the cascode bias Ri.
+//
+// Linear resistor with 1st/2nd-order temperature coefficients:
+//     Reff = R * (1 + tc1*dT + tc2*dT^2),   dT = T - Tnom
+//     I(p,n) = V(p,n) / Reff
+//
+// Compile to an OSDI module and run in ngspice-46:
+//     openvaf resistor_va.va                 -> resistor_va.osdi
+//     ngspice: (.control)  osdi resistor_va.osdi
+//     instance line:       NRI vb vgs resistor_va R=30k
+//
+// Verified to reproduce the built-in-R operating points (see README).
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module resistor_va(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real R    = 1k   from (0:inf);  // nominal resistance [ohm]
+    parameter real tc1  = 0.0;                // linear tempco       [1/K]
+    parameter real tc2  = 0.0;                // quadratic tempco    [1/K^2]
+    parameter real tnom = 27.0;               // reference temp      [degC]
+
+    real reff, dt;
+
+    analog begin
+        dt   = $temperature - (tnom + 273.15);   // $temperature is in Kelvin
+        reff = R * (1.0 + tc1*dt + tc2*dt*dt);
+        I(p, n) <+ V(p, n) / reff;               // Ohm's law (KCL contribution)
+    end
+endmodule

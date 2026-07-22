@@ -127,6 +127,96 @@ triode at low Ri, orange = M2 triode at high Ri).
   W/L → bigger Vov), or bias M2's gate from a lower-Vov replica so `Vo` can sit
   one Vov above ground (wide-swing cascode).
 
+## Verilog-A resistor model for Ri
+
+**Model source: [`resistor_va.va`](resistor_va.va)** — a compact, standards-compliant
+Verilog-A resistor (Ohm's law with 1st/2nd-order temperature coefficients):
+
+```verilog
+analog begin
+    dt   = $temperature - (tnom + 273.15);
+    reff = R * (1.0 + tc1*dt + tc2*dt*dt);
+    I(p, n) <+ V(p, n) / reff;
+end
+```
+
+Compile it to an OSDI module with **OpenVAF** and load it into ngspice-46:
+
+```sh
+openvaf resistor_va.va          # -> resistor_va.osdi
+```
+```spice
+.control
+  osdi resistor_va.osdi
+.endc
+NRI vb vgs resistor_va R=30k     ; Ri as the Verilog-A device
+```
+
+This machine (macOS/arm64) has no Verilog-A compiler, so the provided testbench
+[`cascode_bias_va.cir`](cascode_bias_va.cir) realizes Ri with an ngspice
+behavioral source (`BRI`) that evaluates the **exact same constitutive equation**.
+It reproduces the built-in-resistor operating points **bit-for-bit**:
+
+| Ri | Vbias (VA-R) | Vo (VA-R) | Vo (built-in R) |
+|----|------|------|------|
+| 5 k | 0.68235 V | 0.06753 V | 0.06753 V ✓ |
+| 30 k | 0.91513 V | 0.30002 V | 0.30002 V ✓ |
+| 60 k | 1.21483 V | 0.56212 V | 0.56212 V ✓ |
+
+## Resistor-programmed logic (AND / OR from series & parallel Ri)
+
+Because M1 and M2 are identical and carry the same current, `V(vgs) = VGS2` and
+the offset cancels, leaving a clean linear map
+
+```
+Vo = IB · Ri
+```
+
+So Ri is a digital-to-Vo converter. Build Ri from switched unit resistors
+(driven by inputs A, B) and threshold Vo with a comparator
+([`logic_ri.cir`](logic_ri.cir), IB = 10 µA, Ru = 12 kΩ):
+
+- **Series** `Ri = Rb + A·Ru + B·Ru` → Vo **rises** → non-inverting **OR / AND**
+- **Parallel** `Ri = Rhi ‖ (A?Rp) ‖ (B?Rp)` → Vo **falls** → inverting **NOR / NAND**
+
+The threshold selects the gate. Simulated Vo (V):
+
+| A | B | Vo series | Vo parallel |
+|:-:|:-:|:--:|:--:|
+| 0 | 0 | 0.120 | 0.480 |
+| 0 | 1 | 0.240 | 0.240 |
+| 1 | 0 | 0.240 | 0.240 |
+| 1 | 1 | 0.360 | 0.160 |
+
+| gate | network | threshold | result |
+|------|---------|-----------|--------|
+| **OR**   | series   | Vo > 0.18 V | 0,1,1,1 |
+| **AND**  | series   | Vo > 0.30 V | 0,0,0,1 |
+| **NAND** | parallel | Vo > 0.20 V | 1,1,1,0 |
+| **NOR**  | parallel | Vo > 0.36 V | 1,0,0,0 |
+
+One bias cell = a 2-input gate whose function is set by *how you wire Ri* (series
+vs parallel) and *where you put the comparator threshold*.
+
+## Differential version
+
+Extend the single-ended cell to a differential pair by using the FVF/Ri cascode
+as an **Ri-programmed cascode current-sink tail**: the original cell becomes the
+replica bias (generating `vgs` and `vb`), Mb/Mc mirror it into the tail, and an
+NMOS pair with resistor loads produces `Vo+ / Vo-`. Ri now programs the cascode
+gate `vb` (tail headroom), extending its single-ended role.
+Netlist: [`diff_cascode.cir`](diff_cascode.cir).
+
+<p align="center"><img src="diff_schematic.png" width="640" alt="differential cascode schematic"></p>
+<p align="center"><b>Figure 7.</b> Differential cascode pair on the Ri-programmed FVF tail sink (schematic: <a href="diff_schematic.svg">SVG</a>).</p>
+
+<p align="center"><img src="diff_transfer.png" width="720" alt="differential DC transfer"></p>
+<p align="center"><b>Figure 8.</b> DC transfer (Ri = 30 kΩ, Itail = 20 µA): outputs cross at CM = 1.40 V; differential gain dVod/dVid ≈ 13.6 V/V.</p>
+
+Simulated operating point (Vid = 0): balanced, `vtail = 0.643 V`,
+`Vo+ = Vo- = 1.400 V`, tail = 20 µA (10 µA per side), small-signal
+differential gain ≈ **13.6 V/V**, outputs steer rail-to-rail over ±0.8 V.
+
 ## Reproduce
 
 ```sh
@@ -135,16 +225,32 @@ ngspice -b cascode_bias.cir
 
 # fine sweep -> data -> plot
 ngspice -b sweep.cir | grep '^DATA' | awk '{print $2,$3,$4,$5}' > sweep.dat
-python3 plot_sweep.py        # writes ri_vs_vo.png
+python3 plot_sweep.py            # writes ri_vs_vo.png
+
+# Verilog-A resistor (behavioral-equivalent run here; OpenVAF+OSDI for the .va)
+ngspice -b cascode_bias_va.cir
+
+# resistor-programmed logic truth table
+ngspice -b logic_ri.cir
+
+# differential version
+ngspice -b diff_cascode.cir      # writes diff_sweep.dat
 ```
 
-Requires `ngspice`, `python3`, `numpy`, `matplotlib`.
+Requires `ngspice`, `python3`, `numpy`, `matplotlib` (and `openvaf` to build the
+`.va` into OSDI).
 
 ## Files
 | file | purpose |
 |------|---------|
 | `cascode_bias.cir` | stepped Ri operating-point comparison |
-| `sweep.cir` | fine Ri sweep (2 k…70 k) |
-| `sweep.dat` | sweep output: `Ri  Vo  vgs  vb` |
-| `plot_sweep.py` | builds `ri_vs_vo.png`, computes slope + window |
-| `ri_vs_vo.png` | the 2-D Ri-vs-Vo plot |
+| `sweep.cir` / `sweep.dat` | fine Ri sweep + data (`Ri  Vo  vgs  vb`) |
+| `plot_sweep.py` / `ri_vs_vo.png` | 2-D Ri-vs-Vo plot, slope + window |
+| `resistor_va.va` | **Verilog-A resistor model** (compile with OpenVAF) |
+| `cascode_bias_va.cir` | bias cell using the Verilog-A resistor (behavioral equiv.) |
+| `logic_ri.cir` | resistor-programmed AND/OR/NAND/NOR |
+| `diff_cascode.cir` | differential version netlist |
+| `diff_schematic.svg` / `.png` | differential schematic drawing |
+| `diff_transfer.png` | differential DC transfer plot |
+| `sketch_fvf2.png` / `sketch_fvf.png` | hand sketches |
+| `sketch_annotated_{5k,30k,60k}.png` | annotated operating points |

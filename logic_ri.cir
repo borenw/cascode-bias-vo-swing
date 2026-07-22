@@ -1,0 +1,39 @@
+* Resistor-programmed logic from the cascode bias cell:  Vo = IB * Ri
+* Two digital inputs A,B (0 / 1.8 V) program Ri; a comparator on Vo gives logic.
+*   series network:  Ri = Rb + A*Ru + B*Ru      -> Vo rises  -> OR / AND
+*   parallel network: Ri = Rhi || (A?Rp) || (B?Rp) -> Vo falls -> NOR / NAND
+* Ri is the Verilog-A resistor (realized here by its behavioral equivalent BR*).
+
+.model NM NMOS (level=1 VTO=0.5 KP=150u LAMBDA=0.02 GAMMA=0 PHI=0.7)
+.param Rb=12k Ru=12k Rhi=48k Rp=48k
+
+VDD vcc 0 1.8
+VA  A 0 0
+VB  B 0 0
+
+* ---- series (sum) network -> OR (Vth=0.18) / AND (Vth=0.30) ----
+IBs vcc vbs 10u
+BRs vbs vgss I = V(vbs,vgss)/( {Rb} + (V(A)>0.9 ? {Ru}:0) + (V(B)>0.9 ? {Ru}:0) )
+M1s vos vgss 0   0   NM W=5u L=0.5u
+M2s vgss vbs vos vos NM W=5u L=0.5u
+
+* ---- parallel network -> NOR (Vth=0.36) / NAND (Vth=0.20) ----
+IBp vcc vbp 10u
+BRp vbp vgsp I = V(vbp,vgsp)/( 1/( 1/{Rhi} + (V(A)>0.9 ? 1/{Rp}:0) + (V(B)>0.9 ? 1/{Rp}:0) ) )
+M1p vop vgsp 0   0   NM W=5u L=0.5u
+M2p vgsp vbp vop vop NM W=5u L=0.5u
+
+.control
+set noaskquit
+foreach a 0 1.8
+  foreach b 0 1.8
+    alter VA = $a
+    alter VB = $b
+    op
+    let vs = v(vos)
+    let vp = v(vop)
+    echo "IN A=$a B=$b  Vo_series= $&vs   Vo_parallel= $&vp"
+  end
+end
+.endc
+.end
